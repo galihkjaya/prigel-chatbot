@@ -1,14 +1,22 @@
 {
   "dependencies": {
-    "@fontsource-variable/fraunces": "5.3.0",
-    "@fontsource-variable/manrope": "5.3.0",
     "@pinecone-database/pinecone": "9.2.0",
-    "dompurify": "3.5.0",
     "express": "5.3.0",
-    "lucide": "1.80.0",
     "marked": "18.3.0",
     "multer": "2.5.0",
     "openai": "7.64.0",
     "pdf-parse": "2.4.5"
+  },
+  "private": true,
+  "name": "prigel-unnes",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env server.js --dev",
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test"
   }
 }
