@@ -67,7 +67,7 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
         !m.content.trim() || m.content.length > (m.role === 'user' ? 4000 : 16000))) {
     return res.status(400).json({ error: 'Kirim maksimal 10 pasang pesan dan satu pertanyaan baru (maksimal 4.000 karakter).' });
   }
-  const { answer } = await import('./rag.js');
+  const { answer, createProgressReporter } = await import('./rag.js');
   const turns = messages.map(({ role, content }) => ({ role, content }));
   if (!req.get('Accept')?.includes('application/x-ndjson')) {
     return res.json(await answer(turns));
@@ -78,12 +78,18 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
     if (res.destroyed) throw new Error('Chat closed');
     res.write(JSON.stringify(event) + '\n');
   };
+  const progress = createProgressReporter(turns.at(-1).content, status => emit({ type: 'progress', ...status }));
+  res.on('close', progress.stop);
   try {
-    const result = await answer(turns, progress => emit({ type: 'progress', ...progress }));
+    const result = await answer(turns, event => {
+      if (res.destroyed) throw new Error('Chat closed');
+      progress.update(event);
+    });
     emit({ type: 'answer', ...result });
   } catch (error) {
     if (!res.destroyed) emit({ type: 'error', error: error instanceof RequestError ? error.message : 'Asisten belum dapat menjawab. Coba lagi.' });
   } finally {
+    progress.stop();
     res.end();
   }
 });

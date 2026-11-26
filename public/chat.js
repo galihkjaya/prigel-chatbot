@@ -188,7 +188,7 @@ composer.addEventListener('submit', async (event) => {
       signal: request.signal,
     });
     const data = await readAnswer(response, (label) => {
-      if (activeRequest === request) progress.textContent = label;
+      if (activeRequest === request) progress.replaceChildren(label || indicator);
     });
     if (activeRequest !== request) return;
 

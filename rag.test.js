@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { answer, listResources, upsertResource } from './rag.js';
+import { setImmediate } from 'node:timers/promises';
+import { answer, createProgressReporter, listResources, upsertResource } from './rag.js';
 
 test('publishes complete revisions and only returns citations for the active revision', async (t) => {
   Object.assign(process.env, {
@@ -21,6 +22,8 @@ test('publishes complete revisions and only returns citations for the active rev
   const embeddings = [];
   const upserts = [];
   const prompts = [];
+  const pendingStatus = Promise.withResolvers();
+  const statusStarted = Promise.withResolvers();
   let searches = 0;
   let failWrite = false;
   let wrongDimension = false;
@@ -35,11 +38,23 @@ test('publishes complete revisions and only returns citations for the active rev
         return Response.json({ data: data.reverse() });
       }
       case 'models.example/v1/chat/completions': {
-        prompts.push(JSON.parse(body.messages[1].content));
+        const input = JSON.parse(body.messages[1].content);
+        if (input.stage === 'catalog') {
+          statusStarted.resolve(init.signal);
+          return pendingStatus.promise;
+        }
+        if (input.stage === 'generating') {
+          assert.equal(input.question, 'kapan mulai?');
+          assert.equal(input.excerpts, 2);
+          return Response.json({ choices: [{ message: { content: '{"status":"Lagi nyocokin tanggalnya dengan panduan."}' } }] });
+        }
+        if (input.stage === 'embedding') {
+          return Response.json({ choices: [{ message: { content: 'invalid response' } }] });
+        }
+        prompts.push(input);
         if (body.model === 'mock-chat-primary') {
           return Response.json({ error: { message: 'Model unavailable' } }, { status: 404 });
         }
-        const input = prompts.at(-1);
         const content = !input.sources ? (input.question === 'kapan mulai?'
           ? 'Kapan program Magang PRIGEL UNNES dimulai menurut timeline?'
           : 'Berapa dana program magang?') : output;
@@ -133,4 +148,26 @@ test('publishes complete revisions and only returns citations for the active rev
   assert.deepEqual((await answer(question)).sources, []);
   output = 'NO_SOURCE';
   assert.doesNotMatch((await answer(question)).answer, /NO_SOURCE/);
+
+  await t.test('streams only model-written labels for the current stage', async () => {
+    const events = [];
+    const received = Promise.withResolvers();
+    const reporter = createProgressReporter('kapan mulai?', event => {
+      events.push(event);
+      received.resolve();
+    });
+    t.after(reporter.stop);
+
+    reporter.update({ stage: 'catalog' });
+    const oldSignal = await statusStarted.promise;
+    reporter.update({ stage: 'generating', excerpts: 2 });
+    assert.equal(oldSignal.aborted, true);
+    pendingStatus.resolve(Response.json({ choices: [{ message: { content: '{"status":"Label tahap lama"}' } }] }));
+    await received.promise;
+    assert.deepEqual(events, [{ stage: 'generating', label: 'Lagi nyocokin tanggalnya dengan panduan.' }]);
+
+    reporter.update({ stage: 'embedding' });
+    await setImmediate();
+    assert.deepEqual(events.slice(1), [{ stage: 'embedding', label: '' }]);
+  });
 });
