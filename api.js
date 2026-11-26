@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { RequestError } from './documents.js';
 import { answer, createProgressReporter, listResources, upsertResource } from './rag.js';
-import { traceRequest } from './telemetry.js';
+import { traceChat } from './telemetry.js';
 
 const encoder = new TextEncoder();
 const chatLimit = 256 * 1024;
@@ -45,9 +45,9 @@ async function chat(request) {
     throw new RequestError(400, 'Send up to 10 message pairs and one new question of up to 4,000 characters.');
   }
   const turns = messages.map(({ role, content }) => ({ role, content }));
-  const traceName = 'POST /api/chat';
+  const question = turns.at(-1).content;
   if (!request.headers.get('Accept')?.includes('application/x-ndjson')) {
-    return json(await traceRequest(traceName, () => answer(turns)));
+    return json(await traceChat(question, () => answer(turns)));
   }
 
   let cancelled = false;
@@ -58,8 +58,8 @@ async function chat(request) {
       // Flush the response while the model prepares its first progress update.
       controller.enqueue(encoder.encode('\n'));
       try {
-        const result = await traceRequest(traceName, async () => {
-          progress = createProgressReporter(turns.at(-1).content, status => emit({ type: 'progress', ...status }));
+        const result = await traceChat(question, async () => {
+          progress = createProgressReporter(question, status => emit({ type: 'progress', ...status }));
           try {
             return await answer(turns, event => {
               if (cancelled) throw new Error('Chat closed');

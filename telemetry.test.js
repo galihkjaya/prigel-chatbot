@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import handler from './netlify/functions/api.mjs';
 
-test('Netlify chat exports one metadata-only trace with actual provider token counts', async (t) => {
+test('Netlify chat traces the latest question, final reply, and provider token counts', async (t) => {
   Object.assign(process.env, {
     LANGFUSE_BASE_URL: 'https://observability.example',
     LANGFUSE_PUBLIC_KEY: 'test-public',
@@ -56,7 +56,11 @@ test('Netlify chat exports one metadata-only trace with actual provider token co
   const response = await handler(new Request('https://prigel.example/api/chat', {
     method: 'POST',
     headers: { Accept: 'application/x-ndjson' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'private student question' }] }),
+    body: JSON.stringify({ messages: [
+      { role: 'user', content: 'earlier student question' },
+      { role: 'assistant', content: 'earlier assistant reply' },
+      { role: 'user', content: 'latest student question' },
+    ] }),
   }));
   const events = (await response.text()).trim().split('\n').map(line => JSON.parse(line));
   assert.equal(events.at(-1).answer, answerText);
@@ -65,10 +69,15 @@ test('Netlify chat exports one metadata-only trace with actual provider token co
   assert.equal(exported.path, '/api/public/otel/v1/traces');
   assert.equal(exported.headers['x-langfuse-ingestion-version'], '4');
   assert.equal(exported.headers.Authorization, 'Basic ' + Buffer.from('test-public:test-secret').toString('base64'));
-  assert.doesNotMatch(exported.body, /private student question|January|student-document|test-secret|Checking sources/);
+  assert.doesNotMatch(exported.body, /earlier student question|earlier assistant reply|The program begins|student-document|test-secret|Checking sources/);
   const [root, ...children] = JSON.parse(exported.body).resourceSpans[0].scopeSpans[0].spans;
   assert.equal(root.name, 'POST /api/chat');
+  const input = root.attributes.find(item => item.key === 'langfuse.observation.input');
+  const output = root.attributes.find(item => item.key === 'langfuse.observation.output');
+  assert.equal(JSON.parse(input.value.stringValue), 'latest student question');
+  assert.equal(JSON.parse(output.value.stringValue), answerText);
   assert.ok(children.every(span => span.traceId === root.traceId && span.parentSpanId === root.spanId));
+  assert.ok(children.every(span => span.attributes.every(item => !['langfuse.observation.input', 'langfuse.observation.output'].includes(item.key))));
   const attributes = name => Object.fromEntries(children.find(span => span.name === name).attributes
     .map(({ key, value }) => [key, value.stringValue]));
   const usage = name => JSON.parse(attributes(name)['langfuse.observation.usage_details']);

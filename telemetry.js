@@ -70,20 +70,31 @@ async function sendTrace({ url, credentials }, spans) {
       redirect: 'error',
       signal: AbortSignal.timeout(1500),
     });
-    if (!response.ok) console.warn('Langfuse trace export failed', response.status);
-    await response.body?.cancel();
+    if (!response.ok) {
+      console.warn('Langfuse trace export failed', response.status);
+      await response.body?.cancel();
+      return;
+    }
+    const result = await response.json().catch(() => undefined);
+    if (Number(result?.partialSuccess?.rejectedSpans) > 0) {
+      console.warn('Langfuse rejected spans', Number(result.partialSuccess.rejectedSpans));
+    }
   } catch {
     console.warn('Langfuse trace export unavailable');
   }
 }
 
-export async function traceRequest(name, run) {
+export async function traceChat(question, run) {
   const target = destination();
   if (!target) return run();
+  const name = 'POST /api/chat';
   const root = span(id(16), name, name, 'span');
+  root.attributes.push(attribute('langfuse.observation.input', JSON.stringify(question)));
   const spans = [root];
   try {
-    return await activeTrace.run({ root, spans }, run);
+    const result = await activeTrace.run({ root, spans }, run);
+    root.attributes.push(attribute('langfuse.observation.output', JSON.stringify(result.answer)));
+    return result;
   } catch (error) {
     recordFailure(root, error);
     throw error;
