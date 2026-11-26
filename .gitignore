@@ -1,4 +1,21 @@
 node_modules/
-.env*
-!.env.example
 .playwright-cli/
+
+# Local environment and credentials
+.env*
+!/.env.example
+.git-credentials
+.netrc
+_netrc
+.npmrc
+.aws/
+.ssh/
+credentials/
+credentials.json
+service-account*.json
+secrets/
+secrets.json
+*.key
+*.pem
+*.p12
+*.pfx
