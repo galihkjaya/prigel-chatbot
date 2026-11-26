@@ -55,6 +55,17 @@ test('publishes complete revisions and only returns citations for the active rev
         if (body.model === 'mock-chat-primary') {
           return Response.json({ error: { message: 'Model unavailable' } }, { status: 404 });
         }
+        if (input.notice) {
+          assert.match(body.messages[0].content, /primary language of the user's latest question/);
+          const content = input.question.startsWith('Tulis')
+            ? 'Saya bisa membantu pertanyaan seputar PRIGEL UNNES.'
+            : input.question.startsWith('¿')
+              ? 'No encontré esa información en las fuentes disponibles.'
+              : input.question.startsWith('What')
+                ? input.notice
+                : 'Saya belum menemukan informasi itu di sumber yang tersedia.';
+          return Response.json({ choices: [{ message: { content } }] });
+        }
         const content = !input.sources ? (input.question === 'kapan mulai?'
           ? 'Kapan program Magang PRIGEL UNNES dimulai menurut timeline?'
           : 'Berapa dana program magang?') : output;
@@ -87,8 +98,12 @@ test('publishes complete revisions and only returns citations for the active rev
   const question = [{ role: 'user', content: 'Berapa dana magang?' }];
   assert.deepEqual(await listResources(), []);
   const emptyProgress = [];
-  assert.deepEqual((await answer(question, event => emptyProgress.push(event.stage))).sources, []);
-  assert.deepEqual(emptyProgress, ['catalog']);
+  assert.deepEqual(await answer(question, event => emptyProgress.push(event.stage)), {
+    answer: 'Saya belum menemukan informasi itu di sumber yang tersedia.', sources: [],
+  });
+  assert.deepEqual(emptyProgress, ['catalog', 'localizing', 'retrying']);
+  assert.equal((await answer([{ role: 'user', content: '¿Cuándo empieza PRIGEL?' }])).answer,
+    'No encontré esa información en las fuentes disponibles.');
   await assert.rejects(answer([{ role: 'assistant', content: 'Halo' }]), { status: 400 });
 
   const original = Buffer.from('# Dana\n\nDana program Rp100.000.');
@@ -141,13 +156,16 @@ test('publishes complete revisions and only returns citations for the active rev
   output = 'OUT_OF_SCOPE';
   const previousSearches = searches;
   assert.deepEqual(await answer([{ role: 'user', content: 'Tulis resep mi goreng.' }]),
-    { answer: 'I can help with PRIGEL UNNES questions about schedules, credit conversion, logbooks, and final reports.', sources: [] });
+    { answer: 'Saya bisa membantu pertanyaan seputar PRIGEL UNNES.', sources: [] });
   assert.equal(searches, previousSearches + 1);
 
   output = 'Dana Rp900.000 [9].';
   assert.deepEqual((await answer(question)).sources, []);
   output = 'NO_SOURCE';
-  assert.doesNotMatch((await answer(question)).answer, /NO_SOURCE/);
+  assert.equal((await answer([...question, { role: 'assistant', content: 'Ini jawaban sebelumnya.' },
+    { role: 'user', content: 'What is the internship schedule?' }])).answer,
+  'I could not find that information in the available sources.');
+  assert.equal(prompts.at(-1).previousQuestion, question[0].content);
 
   await t.test('keeps model-written progress visible when stages change faster than the model replies', async () => {
     const events = [];
