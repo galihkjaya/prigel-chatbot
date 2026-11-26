@@ -46,7 +46,7 @@ test('publishes complete revisions and only returns citations for the active rev
         if (input.stage === 'generating') {
           assert.equal(input.question, 'kapan mulai?');
           assert.equal(input.excerpts, 2);
-          return Response.json({ choices: [{ message: { content: '{"status":"Lagi nyocokin tanggalnya dengan panduan."}' } }] });
+          return Response.json({ choices: [{ message: { content: '{"status":"I found some references and started putting the dates together."}' } }] });
         }
         if (input.stage === 'embedding') {
           return Response.json({ choices: [{ message: { content: 'invalid response' } }] });
@@ -141,7 +141,7 @@ test('publishes complete revisions and only returns citations for the active rev
   output = 'OUT_OF_SCOPE';
   const previousSearches = searches;
   assert.deepEqual(await answer([{ role: 'user', content: 'Tulis resep mi goreng.' }]),
-    { answer: 'Saya bisa membantu pertanyaan tentang PRIGEL UNNES, seperti jadwal, konversi SKS, logbook, dan laporan akhir.', sources: [] });
+    { answer: 'I can help with PRIGEL UNNES questions about schedules, credit conversion, logbooks, and final reports.', sources: [] });
   assert.equal(searches, previousSearches + 1);
 
   output = 'Dana Rp900.000 [9].';
@@ -149,25 +149,31 @@ test('publishes complete revisions and only returns citations for the active rev
   output = 'NO_SOURCE';
   assert.doesNotMatch((await answer(question)).answer, /NO_SOURCE/);
 
-  await t.test('streams only model-written labels for the current stage', async () => {
+  await t.test('keeps model-written progress visible when stages change faster than the model replies', async () => {
     const events = [];
     const received = Promise.withResolvers();
     const reporter = createProgressReporter('kapan mulai?', event => {
       events.push(event);
-      received.resolve();
+      if (events.length === 2) received.resolve();
     });
     t.after(reporter.stop);
 
     reporter.update({ stage: 'catalog' });
-    const oldSignal = await statusStarted.promise;
+    const signal = await statusStarted.promise;
+    reporter.update({ stage: 'embedding' });
     reporter.update({ stage: 'generating', excerpts: 2 });
-    assert.equal(oldSignal.aborted, true);
-    pendingStatus.resolve(Response.json({ choices: [{ message: { content: '{"status":"Label tahap lama"}' } }] }));
+    assert.equal(signal.aborted, false);
+    pendingStatus.resolve(Response.json({ choices: [{
+      message: { content: '```json\n{"status":"I started checking the internship references."}\n```' },
+    }] }));
     await received.promise;
-    assert.deepEqual(events, [{ stage: 'generating', label: 'Lagi nyocokin tanggalnya dengan panduan.' }]);
+    assert.deepEqual(events, [
+      { stage: 'catalog', label: 'I started checking the internship references.' },
+      { stage: 'generating', label: 'I found some references and started putting the dates together.' },
+    ]);
 
     reporter.update({ stage: 'embedding' });
     await setImmediate();
-    assert.deepEqual(events.slice(1), [{ stage: 'embedding', label: '' }]);
+    assert.equal(events.length, 2);
   });
 });

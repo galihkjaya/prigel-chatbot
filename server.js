@@ -51,7 +51,7 @@ app.get(['/', '/admin', '/admin/'], async (req, res) => {
     html = await readFile(join(root, file), 'utf8');
   } catch (error) {
     if (!dev || error.code !== 'ENOENT') throw error;
-    html = '<!doctype html><html lang="id"><meta charset="utf-8"><title>PRIGEL UNNES</title><body><h1>PRIGEL UNNES</h1><p>Pratinjau sedang disiapkan. Halaman ini akan diperbarui otomatis.</p></body></html>';
+    html = '<!doctype html><html lang="en"><meta charset="utf-8"><title>PRIGEL UNNES</title><body><h1>PRIGEL UNNES</h1><p>The preview is loading. This page will refresh automatically.</p></body></html>';
   }
   if (dev) html = html.replace('</body>', '<script src="/_dev/reload.js"></script></body>');
   res.set('Cache-Control', 'no-store').type('html').send(html);
@@ -65,7 +65,7 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
       messages.length % 2 === 0 || messages.some((m, i) => !m ||
         m.role !== (i % 2 ? 'assistant' : 'user') || typeof m.content !== 'string' ||
         !m.content.trim() || m.content.length > (m.role === 'user' ? 4000 : 16000))) {
-    return res.status(400).json({ error: 'Kirim maksimal 10 pasang pesan dan satu pertanyaan baru (maksimal 4.000 karakter).' });
+    return res.status(400).json({ error: 'Send up to 10 message pairs and one new question of up to 4,000 characters.' });
   }
   const { answer, createProgressReporter } = await import('./rag.js');
   const turns = messages.map(({ role, content }) => ({ role, content }));
@@ -87,7 +87,7 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
     });
     emit({ type: 'answer', ...result });
   } catch (error) {
-    if (!res.destroyed) emit({ type: 'error', error: error instanceof RequestError ? error.message : 'Asisten belum dapat menjawab. Coba lagi.' });
+    if (!res.destroyed) emit({ type: 'error', error: error instanceof RequestError ? error.message : 'The assistant could not reply. Please try again.' });
   } finally {
     progress.stop();
     res.end();
@@ -96,10 +96,10 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
 
 app.use('/api/resources', (req, res, next) => {
   const password = process.env.ADMIN_PASSWORD;
-  if (!password) return res.status(503).json({ error: 'Sandi admin belum dikonfigurasi.' });
+  if (!password) return res.status(503).json({ error: 'The admin password has not been configured.' });
   const auth = req.get('authorization') || '';
   if (!auth.startsWith('Bearer ') || !timingSafeEqual(digest(auth.slice(7)), digest(password))) {
-    return res.status(401).json({ error: 'Sandi admin tidak sesuai.' });
+    return res.status(401).json({ error: 'Incorrect admin password.' });
   }
   next();
 });
@@ -108,24 +108,24 @@ app.get('/api/resources', async (_req, res) => {
   res.json({ resources: await listResources() });
 });
 app.post('/api/resources', upload.single('file'), async (req, res) => {
-  if (!req.file?.size) return res.status(400).json({ error: 'Pilih dokumen yang berisi teks.' });
+  if (!req.file?.size) return res.status(400).json({ error: 'Choose a document containing text.' });
   const { upsertResource } = await import('./rag.js');
   const name = basename(req.file.originalname).trim();
   res.status(201).json({ resource: await upsertResource(name, req.file.buffer) });
 });
 
-app.use('/api', (_req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan.' }));
+app.use('/api', (_req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
 app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError) {
-    return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Ukuran berkas maksimal 10 MB.' : 'Pilih satu berkas .md atau .pdf.' });
+    return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'The maximum file size is 10 MB.' : 'Choose one .md or .pdf file.' });
   }
   if (error.type === 'entity.parse.failed' || error.type === 'entity.too.large') {
-    return res.status(error.status).json({ error: 'Format atau ukuran permintaan tidak sesuai.' });
+    return res.status(error.status).json({ error: 'The request format or size is invalid.' });
   }
   if (error instanceof RequestError) return res.status(error.status).json({ error: error.message });
-  console.error('Layanan gagal', error.constructor.name, error.status || error.code || '');
-  res.status(502).json({ error: 'Layanan belum dapat memproses permintaan. Coba lagi atau hubungi admin.' });
+  console.error('Service error', error.constructor.name, error.status || error.code || '');
+  res.status(502).json({ error: 'Could not complete the request. Try again or contact an administrator.' });
 });
 
-const server = app.listen(port, host, () => console.log('PRIGEL UNNES tersedia di http://' + host + ':' + server.address().port));
+const server = app.listen(port, host, () => console.log('PRIGEL UNNES is available at http://' + host + ':' + server.address().port));
 

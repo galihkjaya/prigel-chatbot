@@ -72,7 +72,7 @@ function renderMessage(role, text) {
   const article = document.createElement('article');
   article.className = `message ${role}`;
 
-  article.setAttribute('aria-label', role === 'user' ? 'Pesan kamu' : 'Jawaban asisten');
+  article.setAttribute('aria-label', role === 'user' ? 'Your message' : 'Assistant reply');
 
   const content = document.createElement('div');
   content.className = 'message-content';
@@ -90,10 +90,10 @@ function renderSources(sources) {
   for (const source of sources) {
     const details = document.createElement('details');
     const label = document.createElement('summary');
-    const location = [source.name, source.page ? `hlm. ${source.page}` : '', source.heading]
+    const location = [source.name, source.page ? `p. ${source.page}` : '', source.heading]
       .filter(Boolean).join(' · ');
     label.textContent = `[${source.id}]`;
-    label.setAttribute('aria-label', `Sumber ${source.id} · ${location}`);
+    label.setAttribute('aria-label', `Source ${source.id} · ${location}`);
 
     const title = document.createElement('p');
     title.className = 'source-title';
@@ -110,13 +110,13 @@ function renderSources(sources) {
 
 function setBusy(busy) {
   send.disabled = busy;
-  send.setAttribute('aria-label', busy ? 'Sedang menjawab' : 'Kirim');
+  send.setAttribute('aria-label', busy ? 'Waiting for reply' : 'Send');
 }
 
 async function readAnswer(response, showProgress) {
   if (!response.ok || !response.headers.get('Content-Type')?.includes('application/x-ndjson')) {
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Jawaban tidak tersedia. Silakan coba lagi.');
+    if (!response.ok) throw new Error(data.error || 'No reply is available. Please try again.');
     return data;
   }
 
@@ -130,11 +130,11 @@ async function readAnswer(response, showProgress) {
       for (const line of lines) {
         if (!line.trim()) continue;
         const event = JSON.parse(line);
-        if (event.type === 'progress' && typeof event.label === 'string') showProgress(event.label);
-        if (event.type === 'error') throw new Error(event.error || 'Jawaban tidak tersedia. Silakan coba lagi.');
+        if (event.type === 'progress' && typeof event.label === 'string' && event.label.trim()) showProgress(event.label);
+        if (event.type === 'error') throw new Error(event.error || 'No reply is available. Please try again.');
         if (event.type === 'answer') return event;
       }
-      if (done) throw new Error('Jawaban terputus. Silakan coba lagi.');
+      if (done) throw new Error('The reply was interrupted. Please try again.');
     }
   } finally {
     await reader.cancel().catch(() => {});
@@ -154,7 +154,7 @@ composer.addEventListener('submit', async (event) => {
 
   const content = question.value.trim();
   if (!content) {
-    showError('Tulis pertanyaan untuk memulai.');
+    showError('Enter a question to get started.');
     question.focus();
     return;
   }
@@ -188,7 +188,7 @@ composer.addEventListener('submit', async (event) => {
       signal: request.signal,
     });
     const data = await readAnswer(response, (label) => {
-      if (activeRequest === request) progress.replaceChildren(label || indicator);
+      if (activeRequest === request) progress.textContent = label;
     });
     if (activeRequest !== request) return;
 
@@ -212,7 +212,7 @@ composer.addEventListener('submit', async (event) => {
     pending.remove();
     if (!question.value) question.value = content;
     showError(error instanceof SyntaxError || error instanceof TypeError
-      ? 'Asisten tidak dapat dihubungi. Silakan coba lagi.'
+      ? 'Could not reach the assistant. Please try again.'
       : error.message);
     updateLayout();
   } finally {

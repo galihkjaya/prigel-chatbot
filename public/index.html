@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,19 +16,19 @@
 
   <main id="chat" class="chat frame">
     <section id="welcome" class="welcome" aria-labelledby="welcome-title">
-      <h1 id="welcome-title">Daripada tanya dosen,<br><em>mending tanya ini dulu</em></h1>
-      <p>Informasi yang diberikan oleh AI berdasarkan peraturan rektor terbaru dan juga apa yang telah dipaparkan pada sosialisasi prigel.</p>
+      <h1 id="welcome-title">Confused?<br><em>Ask here first.</em></h1>
+      <p>Answers are based on the latest rector’s regulations and information presented at the PRIGEL briefing.</p>
     </section>
 
     <div id="conversation" class="conversation" hidden>
-      <div id="messages" role="log" aria-label="Riwayat percakapan" aria-relevant="additions"></div>
+      <div id="messages" role="log" aria-label="Chat history" aria-relevant="additions"></div>
     </div>
 
     <div class="composer-wrap">
       <form id="composer" class="composer">
-        <label class="visually-hidden" for="question">Pertanyaan tentang Magang PRIGEL UNNES</label>
+        <label class="visually-hidden" for="question">Question about the PRIGEL internship</label>
         <textarea id="question" name="question" rows="1" maxlength="4000" required></textarea>
-        <button class="primary-button send-button" id="send" type="submit" aria-label="Kirim"><span aria-hidden="true">↑</span></button>
+        <button class="primary-button send-button" id="send" type="submit" aria-label="Send"><span aria-hidden="true">↑</span></button>
       </form>
       <p id="chat-error" class="error" role="alert" hidden></p>
     </div>
@@ -36,8 +36,8 @@
   </main>
 
   <footer class="site-footer student-footer frame">
-    <p>Chat bakal ilang kalo tab refresh</p>
-    <p class="site-credit">Made by Data Champion Society</p>
+    <p>Refreshing the tab clears this chat.</p>
+    <p class="site-credit">Made by <a href="https://datachampions.tech" target="_blank" rel="noopener noreferrer">Data Champion Society</a></p>
   </footer>
 </body>
 </html>

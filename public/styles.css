@@ -185,6 +185,7 @@ a { color: inherit; }
 
 .student-footer { flex-direction: column; gap: 5px; }
 .student-footer .site-credit { font-size: .75rem; }
+.site-credit a { text-underline-offset: 3px; }
 
 .chat.has-messages { justify-content: flex-start; padding-top: 20px; padding-bottom: 14px; }
 .chat.has-messages .conversation { flex: 1; }

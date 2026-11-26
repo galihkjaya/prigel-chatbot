@@ -11,7 +11,7 @@ const signOutButton = document.querySelector('#sign-out');
 const resourceList = document.querySelector('#resource-list');
 const noResources = document.querySelector('#no-resources');
 const resourceCount = document.querySelector('#resource-count');
-const dates = new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' });
+const dates = new Intl.DateTimeFormat('en', { dateStyle: 'long' });
 let credential;
 let resources = [];
 
@@ -26,21 +26,21 @@ async function requestResources(key, options) {
     headers: { Authorization: `Bearer ${key}` },
   });
   if (response.status === 401 || response.status === 403) {
-    throw new Error('Kata sandi tidak sesuai. Silakan masuk kembali.', { cause: response.status });
+    throw new Error('Incorrect password. Please sign in again.', { cause: response.status });
   }
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Permintaan tidak dapat diproses. Silakan coba lagi.');
+  if (!response.ok) throw new Error(data.error || 'Could not complete the request. Please try again.');
   return data;
 }
 
 function errorMessage(error) {
   return error instanceof SyntaxError || error instanceof TypeError
-    ? 'Server tidak dapat dihubungi. Silakan coba lagi.'
+    ? 'Could not reach the server. Please try again.'
     : error.message;
 }
 
 function renderResources() {
-  resourceCount.textContent = `${resources.length} berkas`;
+  resourceCount.textContent = `${resources.length} ${resources.length === 1 ? 'file' : 'files'}`;
   noResources.hidden = Boolean(resources.length);
   resourceList.replaceChildren();
 
@@ -53,8 +53,8 @@ function renderResources() {
     const format = resource.type === 'md' ? 'Markdown' : 'PDF';
     const uploadedAt = new Date(resource.uploadedAt);
     const date = Number.isNaN(uploadedAt.getTime()) ? '' : dates.format(uploadedAt);
-    const skipped = resource.emptyPages > 0 ? `${resource.emptyPages} halaman tanpa teks` : '';
-    meta.textContent = [format, `${resource.chunks} cuplikan`, date, skipped].filter(Boolean).join(' · ');
+    const skipped = resource.emptyPages > 0 ? `${resource.emptyPages} ${resource.emptyPages === 1 ? 'page' : 'pages'} without text` : '';
+    meta.textContent = [format, `${resource.chunks} ${resource.chunks === 1 ? 'excerpt' : 'excerpts'}`, date, skipped].filter(Boolean).join(' · ');
 
     item.append(name, meta);
     resourceList.append(item);
@@ -107,7 +107,7 @@ uploadForm.addEventListener('submit', async (event) => {
   uploadButton.disabled = true;
   signOutButton.disabled = true;
   notice(uploadError);
-  notice(uploadStatus, 'Sedang mengunggah dan memproses berkas…');
+  notice(uploadStatus, 'Uploading and processing the file…');
   try {
     const { resource } = await requestResources(credential, {
       method: 'POST', body: new FormData(uploadForm),
@@ -115,7 +115,7 @@ uploadForm.addEventListener('submit', async (event) => {
     resources = [resource, ...resources.filter(({ id }) => id !== resource.id)];
     renderResources();
     uploadForm.reset();
-    notice(uploadStatus, `${resource.name} berhasil ditambahkan.`);
+    notice(uploadStatus, `${resource.name} was added.`);
   } catch (error) {
     notice(uploadStatus);
     if (error.cause === 401 || error.cause === 403) signOut(error.message);

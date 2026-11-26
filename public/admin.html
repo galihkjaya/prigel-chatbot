@@ -1,35 +1,35 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f8f5ed">
-  <title>Admin | Asisten Magang PRIGEL UNNES</title>
+  <title>Admin | PRIGEL AI</title>
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
   <script src="/admin.js" defer></script>
 </head>
 <body>
   <header class="masthead frame">
-    <span class="masthead-label">Admin UNNES</span>
-    <a class="wordmark" href="/" aria-label="PRIGEL, beranda">PRIGEL</a>
-    <a class="masthead-link back-link" href="/"><span aria-hidden="true">←</span> Asisten Magang</a>
+    <span class="masthead-label">UNNES Admin</span>
+    <a class="wordmark" href="/" aria-label="PRIGEL home">PRIGEL</a>
+    <a class="masthead-link back-link" href="/"><span aria-hidden="true">←</span> Back to chat</a>
   </header>
 
   <main class="admin-main frame">
     <header class="admin-heading">
-      <h1>Referensi magang.</h1>
-      <p>Kelola dokumen rujukan Asisten Magang PRIGEL UNNES.</p>
+      <h1>Internship references.</h1>
+      <p>Manage the documents PRIGEL AI uses to answer questions.</p>
     </header>
 
     <section id="sign-in" class="admin-section" aria-labelledby="sign-in-title">
-      <h2 id="sign-in-title">Masuk sebagai admin</h2>
+      <h2 id="sign-in-title">Admin sign-in</h2>
       <form id="sign-in-form" class="admin-form">
         <div class="form-field">
-          <label class="form-label" for="password">Kata sandi</label>
+          <label class="form-label" for="password">Password</label>
           <input id="password" class="password-input" type="password" autocomplete="current-password" required>
         </div>
-        <button class="primary-button" type="submit">Masuk <span aria-hidden="true">→</span></button>
+        <button class="primary-button" type="submit">Sign in <span aria-hidden="true">→</span></button>
       </form>
       <p id="sign-in-error" class="error" role="alert" hidden></p>
     </section>
@@ -37,15 +37,15 @@
     <div id="workspace" hidden>
       <section class="admin-section" aria-labelledby="upload-title">
         <div class="admin-section-head">
-          <h2 id="upload-title">Tambah referensi</h2>
-          <button class="text-button" id="sign-out" type="button">Keluar</button>
+          <h2 id="upload-title">Add a reference</h2>
+          <button class="text-button" id="sign-out" type="button">Sign out</button>
         </div>
         <form id="upload-form" class="admin-form">
           <div class="form-field">
-            <label class="form-label" for="file">Berkas PDF atau Markdown · Maks. 10 MB</label>
+            <label class="form-label" for="file">PDF or Markdown · Up to 10 MB</label>
             <input id="file" name="file" type="file" accept=".pdf,.md,application/pdf,text/markdown" required>
           </div>
-          <button class="primary-button" type="submit">Unggah <span aria-hidden="true">↑</span></button>
+          <button class="primary-button" type="submit">Upload <span aria-hidden="true">↑</span></button>
         </form>
         <p id="upload-status" class="upload-status" role="status" hidden></p>
         <p id="upload-error" class="error" role="alert" hidden></p>
@@ -53,10 +53,10 @@
 
       <section class="admin-section" aria-labelledby="resource-title">
         <div class="admin-section-head">
-          <h2 id="resource-title">Referensi tersedia</h2>
+          <h2 id="resource-title">Available references</h2>
           <span id="resource-count" class="resource-kicker"></span>
         </div>
-        <p id="no-resources" class="empty-resources">Belum ada referensi. Unggah dokumen magang pertama untuk memulai.</p>
+        <p id="no-resources" class="empty-resources">Upload an internship document to add your first reference.</p>
         <ul id="resource-list" class="resource-list"></ul>
       </section>
     </div>

@@ -24,10 +24,10 @@ function markdownSections(buffer) {
   try {
     markdown = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
   } catch {
-    throw new RequestError(422, 'Simpan berkas Markdown dengan penyandian UTF-8.');
+    throw new RequestError(422, 'Save the Markdown file with UTF-8 encoding.');
   }
   if (/\p{Cc}/u.test(markdown.replace(/[\t\n\r]/g, ''))) {
-    throw new RequestError(422, 'Berkas Markdown mengandung karakter yang tidak dapat dibaca.');
+    throw new RequestError(422, 'The Markdown file contains unreadable characters.');
   }
 
   const source = markdown.replace(/\r\n?/g, '\n')
@@ -59,16 +59,16 @@ function markdownSections(buffer) {
 
 async function pdfSections(buffer) {
   if (!buffer.subarray(0, 1024).includes('%PDF-')) {
-    throw new RequestError(422, 'Berkas ini bukan PDF yang valid.');
+    throw new RequestError(422, 'This file is not a valid PDF.');
   }
   const parser = new PDFParse({ data: new Uint8Array(buffer), isEvalSupported: false });
   try {
     const result = await parser.getText({ first: maxPages + 1 });
-    if (result.total > maxPages) throw new RequestError(422, `PDF dibatasi hingga ${maxPages} halaman.`);
+    if (result.total > maxPages) throw new RequestError(422, `PDFs are limited to ${maxPages} pages.`);
     return result.pages.map(({ num, text }) => ({ page: num, text: normalize(text) }));
   } catch (error) {
     if (error instanceof RequestError) throw error;
-    throw new RequestError(422, 'PDF tidak dapat dibaca. Periksa apakah berkas rusak atau dilindungi sandi.');
+    throw new RequestError(422, 'Could not read the PDF. Check whether the file is damaged or password-protected.');
   } finally {
     await parser.destroy();
   }
@@ -97,7 +97,7 @@ function* splitText(text) {
 
 export async function preprocessDocument(name, buffer) {
   const type = extname(name).toLowerCase().slice(1);
-  if (type !== 'md' && type !== 'pdf') throw new RequestError(415, 'Pilih berkas .md atau .pdf.');
+  if (type !== 'md' && type !== 'pdf') throw new RequestError(415, 'Choose a .md or .pdf file.');
 
   const sections = type === 'pdf' ? await pdfSections(buffer) : markdownSections(buffer);
   const chunks = [];
@@ -110,14 +110,14 @@ export async function preprocessDocument(name, buffer) {
     for (const part of splitText(text)) {
       chunks.push({ ...location, text: part });
       if (chunks.length > maxChunks) {
-        throw new RequestError(422, 'Dokumen terlalu panjang. Pecah dokumen menjadi beberapa berkas.');
+        throw new RequestError(422, 'The document is too long. Split it into smaller files.');
       }
     }
   }
   if (!chunks.length) {
     throw new RequestError(422, type === 'pdf'
-      ? 'PDF tidak memiliki teks yang dapat dibaca. Jalankan OCR pada hasil pindai atau unggah versi Markdown.'
-      : 'Berkas Markdown tidak berisi teks.');
+      ? 'This PDF contains no readable text. Run OCR on the scan or upload a Markdown version.'
+      : 'The Markdown file contains no text.');
   }
   return { type, chunks, emptyPages };
 }
