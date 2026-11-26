@@ -5,6 +5,7 @@ import { watch } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RequestError } from './documents.js';
 
 const app = express();
 const dev = process.argv.includes('--dev');
@@ -67,7 +68,24 @@ app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
     return res.status(400).json({ error: 'Kirim maksimal 10 pasang pesan dan satu pertanyaan baru (maksimal 4.000 karakter).' });
   }
   const { answer } = await import('./rag.js');
-  res.json(await answer(messages.map(({ role, content }) => ({ role, content }))));
+  const turns = messages.map(({ role, content }) => ({ role, content }));
+  if (!req.get('Accept')?.includes('application/x-ndjson')) {
+    return res.json(await answer(turns));
+  }
+  res.set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  const emit = event => {
+    if (res.destroyed) throw new Error('Chat closed');
+    res.write(JSON.stringify(event) + '\n');
+  };
+  try {
+    const result = await answer(turns, progress => emit({ type: 'progress', ...progress }));
+    emit({ type: 'answer', ...result });
+  } catch (error) {
+    if (!res.destroyed) emit({ type: 'error', error: error instanceof RequestError ? error.message : 'Asisten belum dapat menjawab. Coba lagi.' });
+  } finally {
+    res.end();
+  }
 });
 
 app.use('/api/resources', (req, res, next) => {
@@ -98,7 +116,7 @@ app.use((error, _req, res, _next) => {
   if (error.type === 'entity.parse.failed' || error.type === 'entity.too.large') {
     return res.status(error.status).json({ error: 'Format atau ukuran permintaan tidak sesuai.' });
   }
-  if (error.constructor.name === 'RequestError') return res.status(error.status).json({ error: error.message });
+  if (error instanceof RequestError) return res.status(error.status).json({ error: error.message });
   console.error('Layanan gagal', error.constructor.name, error.status || error.code || '');
   res.status(502).json({ error: 'Layanan belum dapat memproses permintaan. Coba lagi atau hubungi admin.' });
 });
