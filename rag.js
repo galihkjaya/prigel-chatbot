@@ -46,7 +46,6 @@ async function connectIndex() {
   if (!apiKey || (!name && !configuredHost)) {
     throw new RequestError(503, 'Reference storage has not been configured.');
   }
-  const namespace = env('PINECONE_NAMESPACE') ?? 'prigel-chatbot';
   const pinecone = new Pinecone({ apiKey });
   const hostname = configuredHost?.replace(/^https?:\/\//, '').replace(/\/+$/, '');
   const model = name ? await pinecone.indexes.describe(name) : (await pinecone.indexes.list()).indexes
@@ -58,6 +57,7 @@ async function connectIndex() {
   if (!denseField) throw new RequestError(503, 'The Pinecone index needs a dense vector field.');
 
   const [field, { dimension }] = denseField;
+  const namespace = env('PINECONE_NAMESPACE') ?? name ?? model.name;
   const index = pinecone.index({ host: configuredHost ?? model.host, namespace });
   if (field === '_values') return { index, dimension, documentField: undefined };
   return { index, dimension, documentField: field };
