@@ -83,6 +83,68 @@ function renderMessage(role, text) {
   return article;
 }
 
+async function revealReply(article, pending) {
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion || document.hidden || typeof Intl.Segmenter !== 'function') {
+    pending.replaceWith(article);
+    return;
+  }
+
+  const content = article.querySelector('.message-content');
+  const words = new Intl.Segmenter(undefined, { granularity: 'word' });
+  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+  const boundaries = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    for (const { segment, index } of words.segment(node.data)) {
+      if (segment.trim()) boundaries.push([node, index + segment.length]);
+    }
+  }
+  if (boundaries.length < 2) {
+    pending.replaceWith(article);
+    return;
+  }
+
+  const preview = content.cloneNode(false);
+  preview.setAttribute('aria-hidden', 'true');
+  content.replaceWith(preview);
+  const range = document.createRange();
+  range.setStart(content, 0);
+  range.setEnd(...boundaries[0]);
+  preview.append(range.cloneContents());
+  pending.replaceWith(article);
+
+  const started = performance.now();
+  const duration = Math.min(2200, boundaries.length * 28);
+  const composerTop = () => Math.min(window.innerHeight, composer.getBoundingClientRect().top);
+  let shown = 1;
+  await new Promise(resolve => {
+    function frame(now) {
+      const count = Math.min(boundaries.length, 1 + Math.floor((now - started) / duration * boundaries.length));
+      if (count <= shown) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      const previousBottom = article.getBoundingClientRect().bottom;
+      const following = previousBottom > 0 && previousBottom <= composerTop() + 8;
+      if (count === boundaries.length) {
+        preview.replaceWith(content);
+      } else {
+        range.setEnd(...boundaries[count - 1]);
+        preview.replaceChildren(range.cloneContents());
+        shown = count;
+      }
+      if (following) {
+        const overflow = article.getBoundingClientRect().bottom - composerTop() + 12;
+        if (overflow > 0) window.scrollBy(0, overflow);
+      }
+      if (count === boundaries.length) resolve();
+      else requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 function renderSources(sources) {
   const section = document.createElement('div');
   section.className = 'source-list';
@@ -167,10 +229,8 @@ composer.addEventListener('submit', async (event) => {
   pending.classList.add('pending');
   const progress = pending.querySelector('.message-content');
   progress.setAttribute('role', 'status');
-  const indicator = document.createElement('span');
-  indicator.setAttribute('aria-hidden', 'true');
-  indicator.textContent = '…';
-  progress.append(indicator);
+  progress.textContent = 'Thinking';
+  let assistantArticle;
 
   showError();
   messages.append(userArticle, pending);
@@ -192,10 +252,9 @@ composer.addEventListener('submit', async (event) => {
     });
     if (activeRequest !== request) return;
 
-    const assistantArticle = renderMessage('assistant', data.answer);
+    assistantArticle = renderMessage('assistant', data.answer);
+    await revealReply(assistantArticle, pending);
     if (data.sources?.length) assistantArticle.append(renderSources(data.sources));
-    const followAnswer = pending.getBoundingClientRect().top < window.innerHeight;
-    pending.replaceWith(assistantArticle);
     exchanges.push({
       articles: [userArticle, assistantArticle],
       history: [userMessage, { role: 'assistant', content: data.answer }],
@@ -203,13 +262,11 @@ composer.addEventListener('submit', async (event) => {
     if (exchanges.length > exchangeLimit) {
       for (const article of exchanges.shift().articles) article.remove();
     }
-    if (followAnswer && assistantArticle.getBoundingClientRect().top > window.innerHeight - 160) {
-      assistantArticle.scrollIntoView({ block: 'start' });
-    }
   } catch (error) {
     if (activeRequest !== request) return;
     userArticle.remove();
     pending.remove();
+    assistantArticle?.remove();
     if (!question.value) question.value = content;
     showError(error instanceof SyntaxError || error instanceof TypeError
       ? 'Could not reach the assistant. Please try again.'

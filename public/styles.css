@@ -226,6 +226,22 @@ a { color: inherit; }
 .message-content :is(ul, ol) { padding-left: 1.45em; }
 .message-content h3 { font-size: 1.12em; line-height: 1.35; }
 .message.pending .message-content { color: var(--muted); font-style: italic; }
+
+@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  .message.pending .message-content {
+    background: linear-gradient(100deg, var(--muted) 25%, var(--ink) 50%, var(--muted) 75%);
+    background-size: 220% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: thinking-sweep 1.65s ease-in-out infinite;
+  }
+}
+
+@keyframes thinking-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
 .source-list { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 9px; }
 .source-list details[open] { width: 100%; }
 .source-list summary { padding: 6px 3px; color: var(--accent); font-size: .86rem; }
