@@ -74,8 +74,7 @@ async function pdfSections(buffer) {
   }
 }
 
-function splitText(text) {
-  const parts = [];
+function* splitText(text) {
   let start = 0;
   while (start < text.length) {
     let end = Math.min(text.length, start + chunkSize);
@@ -88,12 +87,12 @@ function splitText(text) {
         break;
       }
     }
-    parts.push(text.slice(start, end).trim());
+    const part = text.slice(start, end).trim();
+    if (part) yield part;
     if (end === text.length) break;
-    const nextWord = text.indexOf(' ', end - overlap);
-    start = nextWord >= 0 && nextWord < end ? nextWord + 1 : end - overlap;
+    const nextWord = text.slice(end - overlap, end).indexOf(' ');
+    start = end - overlap + nextWord + 1;
   }
-  return parts.filter(Boolean);
 }
 
 export async function preprocessDocument(name, buffer) {
