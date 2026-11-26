@@ -1,19 +1,17 @@
 import express from 'express';
-import multer from 'multer';
-import { createHash, timingSafeEqual } from 'node:crypto';
 import { watch } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
-import { RequestError } from './documents.js';
+import { handleApi } from './api.js';
 
 const app = express();
 const dev = process.argv.includes('--dev');
 const root = fileURLToPath(new URL('./public/', import.meta.url));
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || '127.0.0.1';
-const upload = multer({ defParamCharset: 'utf8', limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 0, parts: 2 } });
-const digest = text => createHash('sha256').update(text).digest();
 const bootId = Date.now().toString();
 const clients = new Set();
 
@@ -57,75 +55,20 @@ app.get(['/', '/admin', '/admin/'], async (req, res) => {
   res.set('Cache-Control', 'no-store').type('html').send(html);
 });
 app.use(express.static(root, { index: false }));
-app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-
-app.post('/api/chat', express.json({ limit: '256kb' }), async (req, res) => {
-  const messages = req.body?.messages;
-  if (!Array.isArray(messages) || !messages.length || messages.length > 21 ||
-      messages.length % 2 === 0 || messages.some((m, i) => !m ||
-        m.role !== (i % 2 ? 'assistant' : 'user') || typeof m.content !== 'string' ||
-        !m.content.trim() || m.content.length > (m.role === 'user' ? 4000 : 16000))) {
-    return res.status(400).json({ error: 'Send up to 10 message pairs and one new question of up to 4,000 characters.' });
-  }
-  const { answer, createProgressReporter } = await import('./rag.js');
-  const turns = messages.map(({ role, content }) => ({ role, content }));
-  if (!req.get('Accept')?.includes('application/x-ndjson')) {
-    return res.json(await answer(turns));
-  }
-  res.set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
+app.use('/api', async (req, res) => {
+  const body = !['GET', 'HEAD'].includes(req.method) ? Readable.toWeb(req) : undefined;
+  const request = new Request('http://localhost' + req.originalUrl, {
+    method: req.method, headers: req.headers, body, duplex: 'half',
+  });
+  const response = await handleApi(request);
+  res.status(response.status).set(Object.fromEntries(response.headers));
+  if (!response.body || req.method === 'HEAD') return res.end();
   res.flushHeaders();
-  const emit = event => {
-    if (res.destroyed) throw new Error('Chat closed');
-    res.write(JSON.stringify(event) + '\n');
-  };
-  const progress = createProgressReporter(turns.at(-1).content, status => emit({ type: 'progress', ...status }));
-  res.on('close', progress.stop);
   try {
-    const result = await answer(turns, event => {
-      if (res.destroyed) throw new Error('Chat closed');
-      progress.update(event);
-    });
-    emit({ type: 'answer', ...result });
+    await pipeline(Readable.fromWeb(response.body), res);
   } catch (error) {
-    if (!res.destroyed) emit({ type: 'error', error: error instanceof RequestError ? error.message : 'The assistant could not reply. Please try again.' });
-  } finally {
-    progress.stop();
-    res.end();
+    if (!res.destroyed) throw error;
   }
-});
-
-app.use('/api/resources', (req, res, next) => {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return res.status(503).json({ error: 'The admin password has not been configured.' });
-  const auth = req.get('authorization') || '';
-  if (!auth.startsWith('Bearer ') || !timingSafeEqual(digest(auth.slice(7)), digest(password))) {
-    return res.status(401).json({ error: 'Incorrect admin password.' });
-  }
-  next();
-});
-app.get('/api/resources', async (_req, res) => {
-  const { listResources } = await import('./rag.js');
-  res.json({ resources: await listResources() });
-});
-app.post('/api/resources', upload.single('file'), async (req, res) => {
-  if (!req.file?.size) return res.status(400).json({ error: 'Choose a document containing text.' });
-  const { upsertResource } = await import('./rag.js');
-  const name = basename(req.file.originalname).trim();
-  res.status(201).json({ resource: await upsertResource(name, req.file.buffer) });
-});
-
-app.use('/api', (_req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
-app.use((error, _req, res, _next) => {
-  if (error instanceof multer.MulterError) {
-    return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'The maximum file size is 10 MB.' : 'Choose one .md or .pdf file.' });
-  }
-  if (error.type === 'entity.parse.failed' || error.type === 'entity.too.large') {
-    return res.status(error.status).json({ error: 'The request format or size is invalid.' });
-  }
-  if (error instanceof RequestError) return res.status(error.status).json({ error: error.message });
-  console.error('Service error', error.constructor.name, error.status || error.code || '');
-  res.status(502).json({ error: 'Could not complete the request. Try again or contact an administrator.' });
 });
 
 const server = app.listen(port, host, () => console.log('PRIGEL UNNES is available at http://' + host + ':' + server.address().port));
-

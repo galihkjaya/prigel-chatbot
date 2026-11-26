@@ -1,6 +1,5 @@
 import { extname } from 'node:path';
 import { marked } from 'marked';
-import { PDFParse } from 'pdf-parse';
 
 export class RequestError extends Error {
   constructor(status, message) {
@@ -61,6 +60,7 @@ async function pdfSections(buffer) {
   if (!buffer.subarray(0, 1024).includes('%PDF-')) {
     throw new RequestError(422, 'This file is not a valid PDF.');
   }
+  const { PDFParse } = await import('pdf-parse');
   const parser = new PDFParse({ data: new Uint8Array(buffer), isEvalSupported: false });
   try {
     const result = await parser.getText({ first: maxPages + 1 });

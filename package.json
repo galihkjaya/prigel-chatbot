@@ -3,7 +3,6 @@
     "@pinecone-database/pinecone": "9.2.0",
     "express": "5.3.0",
     "marked": "18.3.0",
-    "multer": "2.5.0",
     "openai": "7.64.0",
     "pdf-parse": "2.4.5"
   },

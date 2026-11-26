@@ -4,6 +4,8 @@ const password = document.querySelector('#password');
 const signInError = document.querySelector('#sign-in-error');
 const workspace = document.querySelector('#workspace');
 const uploadForm = document.querySelector('#upload-form');
+const fileInput = document.querySelector('#file');
+const uploadLimit = document.querySelector('#upload-limit');
 const uploadButton = uploadForm.querySelector('button');
 const uploadStatus = document.querySelector('#upload-status');
 const uploadError = document.querySelector('#upload-error');
@@ -14,6 +16,7 @@ const resourceCount = document.querySelector('#resource-count');
 const dates = new Intl.DateTimeFormat('en', { dateStyle: 'long' });
 let credential;
 let resources = [];
+let maxUploadBytes;
 
 function notice(element, message = '') {
   element.textContent = message;
@@ -88,11 +91,13 @@ signInForm.addEventListener('submit', async (event) => {
     const data = await requestResources(key);
     credential = key;
     resources = data.resources;
+    maxUploadBytes = data.maxUploadBytes;
+    uploadLimit.textContent = maxUploadBytes ? `· Up to ${maxUploadBytes / 1024 ** 2} MB` : '';
     renderResources();
     signInForm.reset();
     signIn.hidden = true;
     workspace.hidden = false;
-    document.querySelector('#file').focus();
+    fileInput.focus();
   } catch (error) {
     notice(signInError, errorMessage(error));
   } finally {
@@ -103,6 +108,10 @@ signInForm.addEventListener('submit', async (event) => {
 uploadForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (uploadButton.disabled || !credential) return;
+  if (maxUploadBytes && fileInput.files[0]?.size > maxUploadBytes) {
+    notice(uploadError, `The maximum file size is ${maxUploadBytes / 1024 ** 2} MB.`);
+    return;
+  }
 
   uploadButton.disabled = true;
   signOutButton.disabled = true;
