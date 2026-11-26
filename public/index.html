@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f5ed">
+  <title>PRIGEL AI</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/chat.js" defer></script>
+</head>
+<body class="student-page">
+  <header class="masthead student-masthead frame">
+    <a class="wordmark" href="/">PRIGEL AI</a>
+  </header>
+
+  <main id="chat" class="chat frame">
+    <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+      <h1 id="welcome-title">Daripada tanya dosen,<br><em>mending tanya ini dulu</em></h1>
+      <p>Informasi yang diberikan oleh AI berdasarkan peraturan rektor terbaru dan juga apa yang telah dipaparkan pada sosialisasi prigel.</p>
+    </section>
+
+    <div id="conversation" class="conversation" hidden>
+      <div id="messages" role="log" aria-label="Riwayat percakapan" aria-relevant="additions"></div>
+    </div>
+
+    <div class="composer-wrap">
+      <form id="composer" class="composer">
+        <label class="visually-hidden" for="question">Pertanyaan tentang Magang PRIGEL UNNES</label>
+        <textarea id="question" name="question" rows="1" maxlength="4000" required></textarea>
+        <button class="primary-button send-button" id="send" type="submit" aria-label="Kirim"><span aria-hidden="true">↑</span></button>
+      </form>
+      <p id="chat-error" class="error" role="alert" hidden></p>
+    </div>
+
+  </main>
+
+  <footer class="site-footer student-footer frame">
+    <p>Chat bakal ilang kalo tab refresh</p>
+    <p class="site-credit">Made by Data Champion Society</p>
+  </footer>
+</body>
+</html>
